@@ -118,15 +118,16 @@ const ScanPage = () => {
   const { toast } = useToast();
 
   const handleImageCaptured = (imageData: string) => {
+    console.log("Image captured and being processed");
     setAnalyzing(true);
-    // In a real app, we would send the image to an API for analysis
-    // For demo purposes, we'll use a timeout to simulate processing
     
+    // Brief delay to ensure UI updates properly before processing
     setTimeout(() => {
       // For demo purposes, randomly select between healthy and processed food
       const resultType = Math.random() > 0.5 ? "processed" : "healthy";
       const results = mockProcessedFoods[resultType];
       
+      console.log("Analysis complete with grade:", results.grade);
       setResults(results);
       setAnalyzing(false);
       setScanning(false);

@@ -1,51 +1,91 @@
 
-import { useState, useRef } from "react";
-import { Camera, FileUp, X } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Camera, FileUp, X, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 
 const ScannerComponent = ({ onImageCaptured }: { onImageCaptured: (imageData: string) => void }) => {
   const [capturing, setCapturing] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  useEffect(() => {
+    // Cleanup function to ensure camera is stopped when component unmounts
+    return () => {
+      if (videoRef.current && videoRef.current.srcObject) {
+        const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+        tracks.forEach(track => track.stop());
+      }
+    };
+  }, []);
+
   const startCamera = async () => {
+    // Reset any previous errors
+    setCameraError(null);
+    
     try {
+      console.log("Attempting to access camera...");
+      
+      // Check if mediaDevices is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("Camera access is not supported in your browser");
+      }
+      
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment" }
       });
       
+      console.log("Camera access granted:", stream);
+      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        videoRef.current.onloadedmetadata = () => {
+          console.log("Video metadata loaded, playing video");
+          if (videoRef.current) {
+            videoRef.current.play().catch(e => {
+              console.error("Error playing video:", e);
+              setCameraError("Could not play camera stream");
+            });
+          }
+        };
         setCapturing(true);
+      } else {
+        throw new Error("Video element not found");
       }
     } catch (error) {
       console.error("Error accessing camera:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown camera error";
+      setCameraError(errorMessage);
       toast({
         variant: "destructive",
         title: "Camera Error",
-        description: "Could not access your camera. Please check permissions."
+        description: `Could not access your camera. ${errorMessage}`
       });
     }
   };
 
   const stopCamera = () => {
+    console.log("Stopping camera...");
     if (videoRef.current && videoRef.current.srcObject) {
       const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
       tracks.forEach(track => track.stop());
       videoRef.current.srcObject = null;
       setCapturing(false);
+      console.log("Camera stopped");
     }
   };
 
   const captureImage = () => {
+    console.log("Capturing image...");
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       
+      // Make sure dimensions are set correctly
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       
@@ -53,9 +93,17 @@ const ScannerComponent = ({ onImageCaptured }: { onImageCaptured: (imageData: st
       if (context) {
         context.drawImage(video, 0, 0, canvas.width, canvas.height);
         const imageData = canvas.toDataURL("image/jpeg");
+        console.log("Image captured successfully");
         setPreviewImage(imageData);
         stopCamera();
         onImageCaptured(imageData);
+      } else {
+        console.error("Could not get canvas context");
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Could not process the image. Please try again."
+        });
       }
     }
   };
@@ -63,6 +111,7 @@ const ScannerComponent = ({ onImageCaptured }: { onImageCaptured: (imageData: st
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      console.log("File selected:", file.name);
       const reader = new FileReader();
       reader.onload = (e) => {
         const imageData = e.target?.result as string;
@@ -75,9 +124,15 @@ const ScannerComponent = ({ onImageCaptured }: { onImageCaptured: (imageData: st
 
   const resetCapture = () => {
     setPreviewImage(null);
+    setCameraError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
+  };
+
+  const tryAgain = () => {
+    setCameraError(null);
+    setCapturing(false);
   };
 
   return (
@@ -119,6 +174,26 @@ const ScannerComponent = ({ onImageCaptured }: { onImageCaptured: (imageData: st
                 <h2 className="text-2xl font-bold text-gray-800">Scan Food Label</h2>
                 <p className="text-gray-600 mt-1">Take a photo of the nutrition facts label</p>
               </div>
+              
+              {cameraError ? (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 w-full">
+                  <div className="flex items-start">
+                    <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 mr-2" />
+                    <div>
+                      <h3 className="text-sm font-medium text-red-800">Camera Error</h3>
+                      <p className="text-sm text-red-700 mt-1">{cameraError}</p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-3"
+                        onClick={tryAgain}
+                      >
+                        Try Again
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
                 <Button 
