@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,6 +62,15 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				health: {
+					'a': '#4ade80', // Green for A grade
+					'b': '#a3e635', // Light green for B grade
+					'c': '#facc15', // Yellow for C grade
+					'd': '#fb923c', // Orange for D grade
+					'f': '#f87171', // Red for F grade
+					'primary': '#22c55e', // Primary brand green
+					'secondary': '#bbf7d0' // Light green for accents
 				}
 			},
 			borderRadius: {
@@ -84,11 +94,16 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'pulse-rating': {
+					'0%, 100%': { transform: 'scale(1)' },
+					'50%': { transform: 'scale(1.05)' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'pulse-rating': 'pulse-rating 1s ease-in-out'
 			}
 		}
 	},
