@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { Camera, FileUp, X, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -41,21 +40,31 @@ const ScannerComponent = ({ onImageCaptured }: { onImageCaptured: (imageData: st
       
       console.log("Camera access granted:", stream);
       
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-          console.log("Video metadata loaded, playing video");
-          if (videoRef.current) {
-            videoRef.current.play().catch(e => {
-              console.error("Error playing video:", e);
-              setCameraError("Could not play camera stream");
-            });
-          }
-        };
-        setCapturing(true);
-      } else {
-        throw new Error("Video element not found");
-      }
+      // Set capturing state first to ensure video element is rendered
+      setCapturing(true);
+      
+      // Add a small delay to ensure video element is mounted before setting srcObject
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.onloadedmetadata = () => {
+            console.log("Video metadata loaded, playing video");
+            if (videoRef.current) {
+              videoRef.current.play().catch(e => {
+                console.error("Error playing video:", e);
+                setCameraError("Could not play camera stream");
+              });
+            }
+          };
+        } else {
+          console.error("Video element still not found after delay");
+          setCameraError("Camera initialization failed. Please try again.");
+          
+          // Clean up the stream if video element is not available
+          stream.getTracks().forEach(track => track.stop());
+        }
+      }, 100);
+      
     } catch (error) {
       console.error("Error accessing camera:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown camera error";
@@ -137,13 +146,16 @@ const ScannerComponent = ({ onImageCaptured }: { onImageCaptured: (imageData: st
 
   return (
     <div className="flex flex-col items-center w-full max-w-xl mx-auto">
+      {/* Always render the canvas to ensure it's available */}
       <canvas ref={canvasRef} className="hidden"></canvas>
       
       {!previewImage ? (
         <>
           {capturing ? (
             <div className="relative w-full">
+              {/* Add a key to force re-render of video element */}
               <video 
+                key="camera-video"
                 ref={videoRef} 
                 autoPlay 
                 playsInline 

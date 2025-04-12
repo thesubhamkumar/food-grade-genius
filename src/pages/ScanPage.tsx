@@ -123,19 +123,29 @@ const ScanPage = () => {
     
     // Brief delay to ensure UI updates properly before processing
     setTimeout(() => {
-      // For demo purposes, randomly select between healthy and processed food
-      const resultType = Math.random() > 0.5 ? "processed" : "healthy";
-      const results = mockProcessedFoods[resultType];
-      
-      console.log("Analysis complete with grade:", results.grade);
-      setResults(results);
-      setAnalyzing(false);
-      setScanning(false);
-      
-      toast({
-        title: "Analysis Complete",
-        description: `This food received a grade ${results.grade}`,
-      });
+      try {
+        // For demo purposes, randomly select between healthy and processed food
+        const resultType = Math.random() > 0.5 ? "processed" : "healthy";
+        const results = mockProcessedFoods[resultType];
+        
+        console.log("Analysis complete with grade:", results.grade);
+        setResults(results);
+        setAnalyzing(false);
+        setScanning(false);
+        
+        toast({
+          title: "Analysis Complete",
+          description: `This food received a grade ${results.grade}`,
+        });
+      } catch (error) {
+        console.error("Error analyzing image:", error);
+        setAnalyzing(false);
+        toast({
+          variant: "destructive",
+          title: "Analysis Error",
+          description: "There was a problem analyzing the image. Please try again."
+        });
+      }
     }, 2000);
   };
 
