@@ -20,66 +20,82 @@ const ScannerComponent = ({ onBarcodeCaptured }: ScannerProps) => {
   // Clean up Quagga when component unmounts
   useEffect(() => {
     return () => {
-      Quagga.stop();
+      if (scanning) {
+        Quagga.stop();
+      }
     };
-  }, []);
+  }, [scanning]);
 
   // Set up Quagga barcode scanner
   const startBarcodeScanner = async () => {
     setCameraError(null);
     
-    if (!videoRef.current) {
-      console.error("Video container not found");
-      setCameraError("Scanner initialization failed. Please try again.");
-      return;
-    }
-    
     try {
       console.log("Initializing barcode scanner...");
       
-      await Quagga.init({
-        inputStream: {
-          name: "Live",
-          type: "LiveStream",
-          target: videoRef.current,
-          constraints: {
-            facingMode: "environment",
-            width: { min: 640 },
-            height: { min: 480 },
-            aspectRatio: { min: 1, max: 2 }
-          },
-        },
-        locator: {
-          patchSize: "medium",
-          halfSample: true
-        },
-        numOfWorkers: navigator.hardwareConcurrency || 4,
-        decoder: {
-          readers: [
-            "ean_reader",
-            "ean_8_reader",
-            "upc_reader",
-            "upc_e_reader"
-          ]
-        },
-        locate: true
-      });
-      
-      Quagga.start();
-      setScanning(true);
-      
-      Quagga.onDetected((result) => {
-        if (result && result.codeResult) {
-          const code = result.codeResult.code;
-          if (code && code !== lastResult) {
-            console.log("Barcode detected:", code);
-            setLastResult(code);
-            handleBarcodeDetected(code);
-          }
+      // Make sure we wait for the video element to be rendered
+      setTimeout(() => {
+        if (!videoRef.current) {
+          console.error("Video container not found");
+          setCameraError("Scanner initialization failed. Please try again.");
+          return;
         }
-      });
-      
-      console.log("Barcode scanner started successfully");
+        
+        Quagga.init({
+          inputStream: {
+            name: "Live",
+            type: "LiveStream",
+            target: videoRef.current,
+            constraints: {
+              facingMode: "environment",
+              width: { min: 640 },
+              height: { min: 480 },
+              aspectRatio: { min: 1, max: 2 }
+            },
+          },
+          locator: {
+            patchSize: "medium",
+            halfSample: true
+          },
+          numOfWorkers: navigator.hardwareConcurrency || 4,
+          decoder: {
+            readers: [
+              "ean_reader",
+              "ean_8_reader",
+              "upc_reader",
+              "upc_e_reader"
+            ]
+          },
+          locate: true
+        }, function(err) {
+          if (err) {
+            console.error("Quagga initialization error:", err);
+            setCameraError(err.toString());
+            toast({
+              variant: "destructive",
+              title: "Scanner Error",
+              description: `Could not access your camera. ${err}`
+            });
+            return;
+          }
+          
+          Quagga.start();
+          setScanning(true);
+          
+          Quagga.onDetected((result) => {
+            if (result && result.codeResult) {
+              const code = result.codeResult.code;
+              if (code && code !== lastResult) {
+                console.log("Barcode detected:", code);
+                setLastResult(code);
+                handleBarcodeDetected(code);
+              }
+            }
+          });
+          
+          console.log("Barcode scanner started successfully");
+        });
+      }, 500); // Give a little time for the DOM to update
     } catch (error) {
       console.error("Error initializing barcode scanner:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown camera error";
@@ -237,7 +253,7 @@ const ScannerComponent = ({ onBarcodeCaptured }: ScannerProps) => {
         </div>
       ) : (
         <div className="relative w-full">
-          <div ref={videoRef} className="w-full h-auto overflow-hidden rounded-lg border-2 border-health-primary"></div>
+          <div ref={videoRef} className="w-full h-[70vh] max-h-[600px] overflow-hidden rounded-lg border-2 border-health-primary"></div>
           <div className="absolute top-4 right-4 flex justify-center space-x-4">
             <Button 
               variant="destructive"
