@@ -7,6 +7,8 @@ export interface UserPreferences {
   isLactoseFree: boolean;
   isLowSugar: boolean;
   isLowSodium: boolean;
+  isHighProtein: boolean;
+  isOrganicOnly: boolean;
   noPalmOil: boolean;
   noArtificialColors: boolean;
   noArtificialFlavors: boolean;
@@ -21,6 +23,8 @@ export const defaultPreferences: UserPreferences = {
   isLactoseFree: false,
   isLowSugar: false,
   isLowSodium: false,
+  isHighProtein: false,
+  isOrganicOnly: false,
   noPalmOil: false,
   noArtificialColors: false,
   noArtificialFlavors: false,
@@ -106,6 +110,16 @@ export function checkProductPreferences(
   // Check low sodium status
   if (preferences.isLowSodium && nutrition && nutrition.sodium > 120) {
     warnings.push('Contains more than 120mg of sodium per 100g');
+  }
+  
+  // Check high protein status
+  if (preferences.isHighProtein && nutrition && nutrition.protein < 10) {
+    warnings.push('Contains less than 10g of protein per 100g');
+  }
+  
+  // Check organic preference
+  if (preferences.isOrganicOnly && !ingredientsLower.some(i => i.includes('organic'))) {
+    warnings.push('Product may not be organic');
   }
   
   // Check palm oil status

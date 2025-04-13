@@ -3,14 +3,17 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ScannerComponent from "@/components/ScannerComponent";
 import ResultsComponent from "@/components/ResultsComponent";
+import ResultsSkeleton from "@/components/ResultsSkeleton";
 import { FoodAnalysis } from "@/components/ResultsComponent";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Clipboard, Plus, AlertCircle } from "lucide-react";
+import { ArrowLeft, Clipboard, Plus, AlertCircle, Clock, XCircle } from "lucide-react";
 import { IngredientExplainer } from "@/components/IngredientExplainer";
 import { Card, CardContent } from "@/components/ui/card";
-import { calculateTrustScore } from "@/utils/trustScoreCalculator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { calculateTrustScore, getTrustScoreColor, getTrustScoreDescription } from "@/utils/trustScoreCalculator";
 import { UserPreferences, defaultPreferences } from "@/utils/userPreferences";
+import { cacheProduct, getCachedProduct, getRecentScans } from "@/utils/productCache";
 
 // Types for the Open Food Facts API response
 type OpenFoodFactsProduct = {
@@ -61,7 +64,16 @@ const ScanPage = () => {
   const [trustScore, setTrustScore] = useState<number>(0);
   const [dataSource, setDataSource] = useState<string>("Not found");
   const [userPreferences, setUserPreferences] = useState<UserPreferences>(defaultPreferences);
+  const [recentScans, setRecentScans] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState("scan");
+  const [loadingRecent, setLoadingRecent] = useState(false);
   const { toast } = useToast();
+
+  // Load recent scans on component mount
+  useEffect(() => {
+    const scans = getRecentScans();
+    setRecentScans(scans);
+  }, []);
 
   const handleBarcodeCaptured = async (barcodeData: string) => {
     console.log("Barcode captured and being processed:", barcodeData);
@@ -69,6 +81,29 @@ const ScanPage = () => {
     setBarcode(barcodeData);
     setNotFound(false);
     setDataSource("Not found");
+    
+    // Check cache first
+    const cachedProduct = getCachedProduct(barcodeData);
+    if (cachedProduct) {
+      console.log("Product found in cache:", cachedProduct);
+      setProductDetails(cachedProduct.data);
+      setDataSource(cachedProduct.source === 'primary' ? 'Open Food Facts (Cached)' : 
+                   `${cachedProduct.source} (Cached)`);
+      setTrustScore(cachedProduct.trustScore);
+      
+      // Process the data into our FoodAnalysis format
+      const results = processProductData(cachedProduct.data);
+      setResults(results);
+      
+      toast({
+        title: "Product Found (Cached)",
+        description: `${results.productName} loaded from cache`,
+      });
+      
+      setAnalyzing(false);
+      setScanning(false);
+      return;
+    }
     
     try {
       // Primary lookup: Open Food Facts API
@@ -86,6 +121,13 @@ const ScanPage = () => {
         // Calculate trust score
         const calculatedTrustScore = calculateTrustScore(data.product);
         setTrustScore(calculatedTrustScore);
+        
+        // Cache the product for future use
+        cacheProduct(barcodeData, data.product, 'primary', calculatedTrustScore);
+        
+        // Update recent scans list
+        const updatedRecentScans = getRecentScans();
+        setRecentScans(updatedRecentScans);
         
         setResults(results);
         
@@ -112,6 +154,13 @@ const ScanPage = () => {
           // Calculate trust score (lower for secondary sources)
           const calculatedTrustScore = calculateTrustScore(convertedData, "secondary");
           setTrustScore(calculatedTrustScore);
+          
+          // Cache the product
+          cacheProduct(barcodeData, convertedData, 'secondary', calculatedTrustScore);
+          
+          // Update recent scans list
+          const updatedRecentScans = getRecentScans();
+          setRecentScans(updatedRecentScans);
           
           setResults(results);
           
@@ -411,6 +460,7 @@ const ScanPage = () => {
     setSelectedIngredient(null);
     setTrustScore(0);
     setDataSource("Not found");
+    setActiveTab("scan");
   };
 
   const copyBarcode = () => {
@@ -448,115 +498,177 @@ const ScanPage = () => {
     });
   };
 
+  // Load a previously scanned product
+  const loadRecentProduct = async (barcode: string) => {
+    setLoadingRecent(true);
+    setActiveTab("scan");
+    setBarcode(barcode);
+    await handleBarcodeCaptured(barcode);
+    setLoadingRecent(false);
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
       <main className="flex-grow container px-4 py-8 mx-auto">
         <div className="max-w-3xl mx-auto">
-          {!scanning && !analyzing && (
-            <Button 
-              variant="ghost" 
-              className="mb-6 flex items-center text-gray-600 hover:text-health-primary"
-              onClick={resetScan}
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Scan Another Product
-            </Button>
-          )}
-          
-          {scanning && (
-            <ScannerComponent onBarcodeCaptured={handleBarcodeCaptured} />
-          )}
-          
-          {analyzing && (
-            <div className="text-center py-12">
-              <div className="inline-block rounded-full p-3 bg-health-secondary mb-4">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-health-primary"></div>
-              </div>
-              <h3 className="text-xl font-medium text-gray-800">Searching Database</h3>
-              <p className="text-gray-500 mt-2">Please wait while we look up the product information</p>
-            </div>
-          )}
-          
-          {!scanning && !analyzing && notFound && barcode && (
-            <div className="bg-white p-6 rounded-xl shadow-sm">
-              <div className="text-center mb-8">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-100 mb-4">
-                  <AlertCircle className="h-8 w-8 text-amber-500" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-800">Product Not Found</h3>
-                <p className="text-gray-600 mt-2">The product with barcode {barcode} was not found in our database.</p>
-              </div>
-              
-              <div className="flex flex-col space-y-4">
-                <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
-                  <div>
-                    <p className="text-sm text-gray-500">Barcode</p>
-                    <p className="font-medium">{barcode}</p>
-                  </div>
-                  <Button variant="ghost" size="icon" onClick={copyBarcode}>
-                    <Clipboard className="h-5 w-5" />
-                  </Button>
-                </div>
-                
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="scan">Scan</TabsTrigger>
+              <TabsTrigger value="history">History</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="scan" className="mt-4">
+              {!scanning && !analyzing && !loadingRecent && (
                 <Button 
-                  variant="default" 
-                  className="w-full gap-2"
-                  onClick={handleAddProduct}
-                >
-                  <Plus className="h-4 w-4" />
-                  Add to Open Food Facts Database
-                </Button>
-                
-                <Button 
-                  variant="outline" 
-                  className="w-full"
+                  variant="ghost" 
+                  className="mb-6 flex items-center text-gray-600 hover:text-health-primary"
                   onClick={resetScan}
                 >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
                   Scan Another Product
                 </Button>
-              </div>
-            </div>
-          )}
-          
-          {!scanning && !analyzing && results && !notFound && (
-            <>
-              {trustScore > 0 && (
-                <Card className="mb-4">
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="text-sm font-medium text-gray-700">Data Source: {dataSource}</p>
-                        <p className="text-sm text-gray-500">Trust Score: {trustScore}/100</p>
-                      </div>
-                      <div className="w-16 h-16 flex items-center justify-center rounded-full bg-gray-100">
-                        <span className={`text-xl font-bold ${
-                          trustScore >= 80 ? 'text-green-600' : 
-                          trustScore >= 60 ? 'text-amber-500' : 
-                          'text-red-500'
-                        }`}>
-                          {trustScore}%
-                        </span>
-                      </div>
+              )}
+              
+              {(scanning || loadingRecent) && !analyzing && (
+                <ScannerComponent onBarcodeCaptured={handleBarcodeCaptured} />
+              )}
+              
+              {analyzing && (
+                <div className="text-center py-12">
+                  <ResultsSkeleton />
+                </div>
+              )}
+              
+              {!scanning && !analyzing && !loadingRecent && notFound && barcode && (
+                <div className="bg-white p-6 rounded-xl shadow-sm">
+                  <div className="text-center mb-8">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-100 mb-4">
+                      <AlertCircle className="h-8 w-8 text-amber-500" />
                     </div>
-                  </CardContent>
-                </Card>
+                    <h3 className="text-xl font-semibold text-gray-800">Product Not Found</h3>
+                    <p className="text-gray-600 mt-2">The product with barcode {barcode} was not found in our database.</p>
+                  </div>
+                  
+                  <div className="flex flex-col space-y-4">
+                    <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                      <div>
+                        <p className="text-sm text-gray-500">Barcode</p>
+                        <p className="font-medium">{barcode}</p>
+                      </div>
+                      <Button variant="ghost" size="icon" onClick={copyBarcode}>
+                        <Clipboard className="h-5 w-5" />
+                      </Button>
+                    </div>
+                    
+                    <Button 
+                      variant="default" 
+                      className="w-full gap-2"
+                      onClick={handleAddProduct}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add to Open Food Facts Database
+                    </Button>
+                    
+                    <Button 
+                      variant="outline" 
+                      className="w-full"
+                      onClick={resetScan}
+                    >
+                      Scan Another Product
+                    </Button>
+                  </div>
+                </div>
               )}
               
-              <ResultsComponent 
-                analysis={results} 
-                onIngredientClick={handleIngredientClick}
-                userPreferences={userPreferences}
-              />
-              
-              {selectedIngredient && (
-                <IngredientExplainer 
-                  ingredient={selectedIngredient} 
-                  onClose={closeIngredientExplainer} 
-                />
+              {!scanning && !analyzing && !loadingRecent && results && !notFound && (
+                <>
+                  {trustScore > 0 && (
+                    <Card className="mb-4">
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Data Source: {dataSource}</p>
+                            <p className="text-sm text-gray-500">Trust Score: {getTrustScoreDescription(trustScore)}</p>
+                          </div>
+                          <div className="w-16 h-16 flex items-center justify-center rounded-full bg-gray-100">
+                            <span className={`text-xl font-bold ${getTrustScoreColor(trustScore)}`}>
+                              {trustScore}%
+                            </span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                  
+                  <ResultsComponent 
+                    analysis={results} 
+                    onIngredientClick={handleIngredientClick}
+                    userPreferences={userPreferences}
+                  />
+                  
+                  {selectedIngredient && (
+                    <IngredientExplainer 
+                      ingredient={selectedIngredient} 
+                      onClose={closeIngredientExplainer} 
+                    />
+                  )}
+                </>
               )}
-            </>
-          )}
+            </TabsContent>
+            
+            <TabsContent value="history" className="mt-4">
+              <div className="bg-white p-6 rounded-xl shadow-sm">
+                <h3 className="text-lg font-medium text-gray-900 flex items-center mb-4">
+                  <Clock className="h-5 w-5 mr-2 text-blue-500" />
+                  Recent Scans
+                </h3>
+                
+                {recentScans.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>You haven't scanned any products yet.</p>
+                    <Button 
+                      variant="outline" 
+                      className="mt-4" 
+                      onClick={() => setActiveTab("scan")}
+                    >
+                      Scan Your First Product
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {recentScans.map((code, index) => {
+                      const cached = getCachedProduct(code);
+                      return (
+                        <div 
+                          key={index}
+                          className="p-3 border border-gray-200 rounded-lg flex justify-between items-center hover:bg-gray-50 transition-colors cursor-pointer"
+                          onClick={() => loadRecentProduct(code)}
+                        >
+                          <div>
+                            <p className="font-medium">
+                              {cached?.data?.product_name || `Product ${code}`}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {cached?.data?.brands || 'Unknown Brand'} • Barcode: {code}
+                            </p>
+                          </div>
+                          <div>
+                            {cached && (
+                              <div className={`text-sm font-medium rounded-full w-8 h-8 flex items-center justify-center 
+                                ${getTrustScoreColor(cached.trustScore)} bg-gray-100`}>
+                                {cached.trustScore}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
       <Footer />

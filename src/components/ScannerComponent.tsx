@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import Quagga from "@ericblade/quagga2";
 import { Input } from "@/components/ui/input";
+import ScanGuideOverlay from "./ScanGuideOverlay";
 
 type ScannerProps = {
   onBarcodeCaptured: (barcodeData: string) => void;
@@ -14,6 +15,7 @@ const ScannerComponent = ({ onBarcodeCaptured }: ScannerProps) => {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<string | null>(null);
   const [manualBarcode, setManualBarcode] = useState<string>("");
+  const [lastDetectionTime, setLastDetectionTime] = useState<number>(0);
   const videoRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -59,6 +61,7 @@ const ScannerComponent = ({ onBarcodeCaptured }: ScannerProps) => {
             halfSample: true
           },
           numOfWorkers: navigator.hardwareConcurrency || 4,
+          frequency: 15, // Scan frames at 15FPS for better performance
           decoder: {
             readers: [
               "ean_reader",
@@ -67,7 +70,13 @@ const ScannerComponent = ({ onBarcodeCaptured }: ScannerProps) => {
               "upc_e_reader"
             ]
           },
-          locate: true
+          locate: true,
+          area: { // Limit detection to the center area (where the guide box is)
+            top: "30%", 
+            right: "20%", 
+            left: "20%", 
+            bottom: "30%" 
+          },
         }, function(err) {
           if (err) {
             console.error("Quagga initialization error:", err);
@@ -83,13 +92,25 @@ const ScannerComponent = ({ onBarcodeCaptured }: ScannerProps) => {
           Quagga.start();
           setScanning(true);
           
+          // Add debounce to prevent multiple detections of same barcode
           Quagga.onDetected((result) => {
             if (result && result.codeResult) {
               const code = result.codeResult.code;
-              if (code && code !== lastResult) {
+              const now = Date.now();
+              
+              // Only process if it's a new code or more than 2 seconds since last detection
+              if (code && (code !== lastResult || now - lastDetectionTime > 2000)) {
                 console.log("Barcode detected:", code);
                 setLastResult(code);
-                handleBarcodeDetected(code);
+                setLastDetectionTime(now);
+                
+                // Validate the barcode (must be digits only and reasonable length)
+                if (/^\d+$/.test(code) && code.length >= 8 && code.length <= 13) {
+                  handleBarcodeDetected(code);
+                } else {
+                  // Invalid barcode format - keep scanning
+                  console.log("Invalid barcode format, continuing scan");
+                }
               }
             }
           });
@@ -292,6 +313,10 @@ const ScannerComponent = ({ onBarcodeCaptured }: ScannerProps) => {
       ) : (
         <div className="relative w-full">
           <div ref={videoRef} className="w-full h-[70vh] max-h-[600px] overflow-hidden rounded-lg border-2 border-health-primary"></div>
+          
+          {/* Scan Guide Overlay */}
+          <ScanGuideOverlay />
+          
           <div className="absolute top-4 right-4 flex justify-center space-x-4">
             <Button 
               variant="destructive"
@@ -301,11 +326,6 @@ const ScannerComponent = ({ onBarcodeCaptured }: ScannerProps) => {
             >
               <X className="h-5 w-5" />
             </Button>
-          </div>
-          <div className="absolute bottom-4 left-0 right-0 flex justify-center">
-            <div className="bg-white/80 p-2 rounded-full shadow-lg text-sm">
-              <p className="text-center">Hold steady, searching for barcode...</p>
-            </div>
           </div>
         </div>
       )}
