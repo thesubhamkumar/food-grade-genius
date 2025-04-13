@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ScannerComponent from "@/components/ScannerComponent";
@@ -7,6 +7,10 @@ import { FoodAnalysis } from "@/components/ResultsComponent";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Clipboard, Plus, AlertCircle } from "lucide-react";
+import { IngredientExplainer } from "@/components/IngredientExplainer";
+import { Card, CardContent } from "@/components/ui/card";
+import { calculateTrustScore } from "@/utils/trustScoreCalculator";
+import { UserPreferences, defaultPreferences } from "@/utils/userPreferences";
 
 // Types for the Open Food Facts API response
 type OpenFoodFactsProduct = {
@@ -33,6 +37,19 @@ type OpenFoodFactsProduct = {
   [key: string]: any;
 };
 
+// Secondary API response type (simplified)
+type SecondaryApiProduct = {
+  name: string;
+  brand: string;
+  ingredients: string;
+  nutrients: {
+    [key: string]: number;
+  };
+  allergens?: string[];
+  image?: string;
+  [key: string]: any;
+};
+
 const ScanPage = () => {
   const [scanning, setScanning] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
@@ -40,6 +57,10 @@ const ScanPage = () => {
   const [productDetails, setProductDetails] = useState<OpenFoodFactsProduct | null>(null);
   const [barcode, setBarcode] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [selectedIngredient, setSelectedIngredient] = useState<string | null>(null);
+  const [trustScore, setTrustScore] = useState<number>(0);
+  const [dataSource, setDataSource] = useState<string>("Not found");
+  const [userPreferences, setUserPreferences] = useState<UserPreferences>(defaultPreferences);
   const { toast } = useToast();
 
   const handleBarcodeCaptured = async (barcodeData: string) => {
@@ -47,18 +68,25 @@ const ScanPage = () => {
     setAnalyzing(true);
     setBarcode(barcodeData);
     setNotFound(false);
+    setDataSource("Not found");
     
     try {
-      // Fetch product data from Open Food Facts API
+      // Primary lookup: Open Food Facts API
       const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcodeData}.json`);
       const data = await response.json();
       
       if (data.status === 1 && data.product) {
-        console.log("Product found:", data.product);
+        console.log("Product found in Open Food Facts:", data.product);
         setProductDetails(data.product);
+        setDataSource("Open Food Facts");
         
         // Process the data into our FoodAnalysis format
         const results = processProductData(data.product);
+        
+        // Calculate trust score
+        const calculatedTrustScore = calculateTrustScore(data.product);
+        setTrustScore(calculatedTrustScore);
+        
         setResults(results);
         
         toast({
@@ -66,13 +94,40 @@ const ScanPage = () => {
           description: `${results.productName} information retrieved successfully`,
         });
       } else {
-        console.log("Product not found");
-        setNotFound(true);
-        toast({
-          variant: "destructive",
-          title: "Product Not Found",
-          description: "This product was not found in the database. Would you like to add it?"
-        });
+        console.log("Product not found in Open Food Facts, trying secondary sources...");
+        
+        // Attempt to get data from a secondary source (simulated for now)
+        const secondaryResult = await trySecondaryApis(barcodeData);
+        
+        if (secondaryResult) {
+          console.log("Product found in secondary API:", secondaryResult);
+          // Convert to our format
+          const convertedData = convertSecondaryApiData(secondaryResult);
+          setProductDetails(convertedData);
+          setDataSource(secondaryResult.source);
+          
+          // Process into FoodAnalysis
+          const results = processProductData(convertedData);
+          
+          // Calculate trust score (lower for secondary sources)
+          const calculatedTrustScore = calculateTrustScore(convertedData, "secondary");
+          setTrustScore(calculatedTrustScore);
+          
+          setResults(results);
+          
+          toast({
+            title: "Product Found (Alternative Source)",
+            description: `${results.productName} information retrieved from ${secondaryResult.source}`,
+          });
+        } else {
+          console.log("Product not found in any database");
+          setNotFound(true);
+          toast({
+            variant: "destructive",
+            title: "Product Not Found",
+            description: "This product was not found in any database. Would you like to add it?"
+          });
+        }
       }
     } catch (error) {
       console.error("Error fetching product data:", error);
@@ -86,6 +141,40 @@ const ScanPage = () => {
       setAnalyzing(false);
       setScanning(false);
     }
+  };
+
+  // This is a placeholder function - in a real app, this would call actual secondary APIs
+  const trySecondaryApis = async (barcode: string): Promise<SecondaryApiProduct & { source: string } | null> => {
+    console.log("Attempting secondary API lookup for barcode:", barcode);
+    
+    // For now, returning null to simulate that no secondary source has the product
+    // In a real app, you would call other APIs here like USDA, RapidAPI, etc.
+    return null;
+  };
+
+  // Convert secondary API data to match our expected OpenFoodFactsProduct format
+  const convertSecondaryApiData = (secondaryData: SecondaryApiProduct & { source: string }): OpenFoodFactsProduct => {
+    return {
+      product_name: secondaryData.name,
+      brands: secondaryData.brand,
+      ingredients_text: secondaryData.ingredients,
+      nutriments: {
+        energy: secondaryData.nutrients.energy || 0,
+        fat: secondaryData.nutrients.fat || 0,
+        "saturated-fat": secondaryData.nutrients.saturatedFat || 0,
+        carbohydrates: secondaryData.nutrients.carbohydrates || 0,
+        sugars: secondaryData.nutrients.sugars || 0,
+        proteins: secondaryData.nutrients.proteins || 0,
+        fiber: secondaryData.nutrients.fiber || 0,
+        salt: secondaryData.nutrients.salt || 0,
+        sodium: secondaryData.nutrients.sodium || 0,
+      },
+      allergens_tags: secondaryData.allergens || [],
+      additives_tags: [],
+      image_url: secondaryData.image,
+      // Add a source property to track where this data came from
+      data_source: secondaryData.source,
+    };
   };
 
   const processProductData = (product: OpenFoodFactsProduct): FoodAnalysis => {
@@ -319,6 +408,9 @@ const ScanPage = () => {
     setProductDetails(null);
     setBarcode(null);
     setNotFound(false);
+    setSelectedIngredient(null);
+    setTrustScore(0);
+    setDataSource("Not found");
   };
 
   const copyBarcode = () => {
@@ -337,6 +429,22 @@ const ScanPage = () => {
     toast({
       title: "Add Product",
       description: "Opening Open Food Facts submission page"
+    });
+  };
+
+  const handleIngredientClick = (ingredient: string) => {
+    setSelectedIngredient(ingredient);
+  };
+
+  const closeIngredientExplainer = () => {
+    setSelectedIngredient(null);
+  };
+
+  // Update user preferences (this would be expanded in a real app)
+  const updatePreferences = (key: keyof UserPreferences, value: boolean) => {
+    setUserPreferences({
+      ...userPreferences,
+      [key]: value
     });
   };
 
@@ -412,7 +520,42 @@ const ScanPage = () => {
           )}
           
           {!scanning && !analyzing && results && !notFound && (
-            <ResultsComponent analysis={results} />
+            <>
+              {trustScore > 0 && (
+                <Card className="mb-4">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="text-sm font-medium text-gray-700">Data Source: {dataSource}</p>
+                        <p className="text-sm text-gray-500">Trust Score: {trustScore}/100</p>
+                      </div>
+                      <div className="w-16 h-16 flex items-center justify-center rounded-full bg-gray-100">
+                        <span className={`text-xl font-bold ${
+                          trustScore >= 80 ? 'text-green-600' : 
+                          trustScore >= 60 ? 'text-amber-500' : 
+                          'text-red-500'
+                        }`}>
+                          {trustScore}%
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              <ResultsComponent 
+                analysis={results} 
+                onIngredientClick={handleIngredientClick}
+                userPreferences={userPreferences}
+              />
+              
+              {selectedIngredient && (
+                <IngredientExplainer 
+                  ingredient={selectedIngredient} 
+                  onClose={closeIngredientExplainer} 
+                />
+              )}
+            </>
           )}
         </div>
       </main>

@@ -1,6 +1,6 @@
-
 import { Award, AlertCircle, Zap, Info, Tag, Utensils } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { UserPreferences } from "@/utils/userPreferences";
 
 export type NutritionInfo = {
   calories: number;
@@ -26,6 +26,12 @@ export type FoodAnalysis = {
   image?: string | null;
 };
 
+type ResultsComponentProps = {
+  analysis: FoodAnalysis;
+  onIngredientClick?: (ingredient: string) => void;
+  userPreferences?: UserPreferences;
+};
+
 // Updated grade descriptions based on WHO nutritional standards
 const gradeDescriptions = {
   A: "Excellent nutritional profile. Aligns with WHO guidelines for a healthy diet with minimal processing and beneficial ingredients.",
@@ -45,7 +51,7 @@ const whoReferences = {
   protein: "WHO recommends protein based on body weight (0.8g/kg for average adults)"
 };
 
-const ResultsComponent = ({ analysis }: { analysis: FoodAnalysis }) => {
+const ResultsComponent = ({ analysis, onIngredientClick, userPreferences }: ResultsComponentProps) => {
   // Helper function to determine progress color based on nutrient and value
   const getNutrientProgressColor = (nutrient: string, value: number): string => {
     switch (nutrient) {
@@ -65,6 +71,58 @@ const ResultsComponent = ({ analysis }: { analysis: FoodAnalysis }) => {
         return '';
     }
   };
+  
+  // Check if a product meets user preferences
+  const checkProductPreferences = () => {
+    if (!userPreferences) return null;
+    
+    const warnings: {label: string, warning: string}[] = [];
+    
+    // Check for preference violations
+    if (userPreferences.isVegan && analysis.ingredients.some(i => 
+      i.toLowerCase().includes('milk') || 
+      i.toLowerCase().includes('egg') || 
+      i.toLowerCase().includes('meat') ||
+      i.toLowerCase().includes('honey')
+    )) {
+      warnings.push({
+        label: 'Not Vegan',
+        warning: 'This product contains animal ingredients'
+      });
+    }
+    
+    if (userPreferences.isGlutenFree && analysis.ingredients.some(i => 
+      i.toLowerCase().includes('wheat') || 
+      i.toLowerCase().includes('barley') || 
+      i.toLowerCase().includes('rye') ||
+      i.toLowerCase().includes('gluten')
+    )) {
+      warnings.push({
+        label: 'Contains Gluten',
+        warning: 'This product contains gluten'
+      });
+    }
+    
+    if (userPreferences.isLowSugar && analysis.nutrition.sugar > 10) {
+      warnings.push({
+        label: 'High Sugar',
+        warning: 'This product contains high amounts of sugar'
+      });
+    }
+    
+    if (userPreferences.noPalmOil && analysis.ingredients.some(i => 
+      i.toLowerCase().includes('palm oil')
+    )) {
+      warnings.push({
+        label: 'Contains Palm Oil',
+        warning: 'This product contains palm oil'
+      });
+    }
+    
+    return warnings.length > 0 ? warnings : null;
+  };
+  
+  const preferenceWarnings = userPreferences ? checkProductPreferences() : null;
 
   return (
     <div className="w-full max-w-3xl mx-auto bg-white rounded-xl shadow-sm overflow-hidden">
@@ -102,6 +160,24 @@ const ResultsComponent = ({ analysis }: { analysis: FoodAnalysis }) => {
               </div>
             </div>
           </div>
+          
+          {/* User Preference Warnings */}
+          {preferenceWarnings && preferenceWarnings.length > 0 && (
+            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <h4 className="text-sm font-semibold text-amber-700 flex items-center">
+                <AlertCircle className="h-4 w-4 mr-1" />
+                Preference Alerts
+              </h4>
+              <ul className="mt-2 space-y-1">
+                {preferenceWarnings.map((warning, idx) => (
+                  <li key={idx} className="text-xs text-amber-600 flex items-start">
+                    <span className="inline-block w-2 h-2 rounded-full bg-amber-500 mt-1.5 mr-1.5"></span>
+                    <span><strong>{warning.label}:</strong> {warning.warning}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
         
         <div className="p-6">
@@ -171,9 +247,28 @@ const ResultsComponent = ({ analysis }: { analysis: FoodAnalysis }) => {
             </h3>
             <p className="text-sm text-gray-600">
               {analysis.ingredients.length > 0 
-                ? analysis.ingredients.join(', ') 
+                ? (
+                  <span>
+                    {analysis.ingredients.map((ingredient, index) => (
+                      <span key={index}>
+                        <span 
+                          className={`${onIngredientClick ? 'cursor-pointer text-blue-600 hover:underline' : ''}`}
+                          onClick={() => onIngredientClick && onIngredientClick(ingredient)}
+                        >
+                          {ingredient}
+                        </span>
+                        {index < analysis.ingredients.length - 1 ? ', ' : ''}
+                      </span>
+                    ))}
+                  </span>
+                ) 
                 : "Ingredients information not available"}
             </p>
+            {onIngredientClick && (
+              <p className="text-xs text-gray-500 mt-2 italic">
+                Click on any ingredient to learn more about it
+              </p>
+            )}
           </div>
           
           {/* Health information */}
