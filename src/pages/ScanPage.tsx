@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -7,7 +6,7 @@ import ResultsComponent from "@/components/ResultsComponent";
 import { FoodAnalysis } from "@/components/ResultsComponent";
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Clipboard, Plus } from "lucide-react";
+import { ArrowLeft, Clipboard, Plus, AlertCircle } from "lucide-react";
 
 // Types for the Open Food Facts API response
 type OpenFoodFactsProduct = {
