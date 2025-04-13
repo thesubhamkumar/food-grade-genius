@@ -1,9 +1,9 @@
-
 import { useState, useRef, useEffect } from "react";
-import { Camera, FileUp, X, AlertCircle, RefreshCw } from "lucide-react";
+import { Camera, FileUp, X, AlertCircle, RefreshCw, TextCursorInput } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import Quagga from "@ericblade/quagga2";
+import { Input } from "@/components/ui/input";
 
 type ScannerProps = {
   onBarcodeCaptured: (barcodeData: string) => void;
@@ -13,6 +13,7 @@ const ScannerComponent = ({ onBarcodeCaptured }: ScannerProps) => {
   const [scanning, setScanning] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<string | null>(null);
+  const [manualBarcode, setManualBarcode] = useState<string>("");
   const videoRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -191,6 +192,24 @@ const ScannerComponent = ({ onBarcodeCaptured }: ScannerProps) => {
     setScanning(false);
   };
 
+  const handleManualBarcodeSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (manualBarcode.trim().length > 0) {
+      console.log("Manual barcode submitted:", manualBarcode);
+      onBarcodeCaptured(manualBarcode.trim());
+      toast({
+        title: "Barcode Submitted",
+        description: `Processing barcode: ${manualBarcode}`,
+      });
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Invalid Barcode",
+        description: "Please enter a valid barcode number"
+      });
+    }
+  };
+
   return (
     <div className="flex flex-col items-center w-full max-w-xl mx-auto">
       {!scanning ? (
@@ -249,6 +268,25 @@ const ScannerComponent = ({ onBarcodeCaptured }: ScannerProps) => {
               onChange={handleFileUpload} 
               className="hidden" 
             />
+          </div>
+          
+          <div className="w-full mt-4 p-4 bg-white rounded-lg border border-gray-200">
+            <h3 className="text-sm font-medium text-gray-700 mb-2">Enter Barcode Manually</h3>
+            <form onSubmit={handleManualBarcodeSubmit} className="flex gap-2">
+              <Input
+                type="text"
+                placeholder="Enter UPC/EAN barcode number"
+                value={manualBarcode}
+                onChange={(e) => setManualBarcode(e.target.value)}
+                className="flex-grow"
+                pattern="[0-9]*"
+                inputMode="numeric"
+              />
+              <Button type="submit" variant="default">
+                <TextCursorInput className="h-5 w-5 mr-1" />
+                Submit
+              </Button>
+            </form>
           </div>
         </div>
       ) : (
