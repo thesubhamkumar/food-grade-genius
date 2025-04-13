@@ -1,5 +1,5 @@
 
-import { Award, AlertCircle, Zap, Info } from "lucide-react";
+import { Award, AlertCircle, Zap, Info, Tag, Utensils } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
 export type NutritionInfo = {
@@ -22,6 +22,8 @@ export type FoodAnalysis = {
   concerns: string[];
   positives: string[];
   ingredients: string[];
+  brand?: string;
+  image?: string | null;
 };
 
 // Updated grade descriptions based on WHO nutritional standards
@@ -66,100 +68,122 @@ const ResultsComponent = ({ analysis }: { analysis: FoodAnalysis }) => {
 
   return (
     <div className="w-full max-w-3xl mx-auto bg-white rounded-xl shadow-sm overflow-hidden">
-      <div className="flex flex-col md:flex-row">
-        <div className="flex items-center justify-center p-6 md:p-8 bg-gradient-to-br from-gray-50 to-gray-100 md:w-1/3">
-          <div className="text-center">
-            <div className="mb-3 text-gray-600 font-medium">WHO Health Grade</div>
-            <div className={`health-grade health-grade-${analysis.grade.toLowerCase()} mx-auto animate-pulse-rating`}>
-              {analysis.grade}
+      <div className="flex flex-col">
+        {/* Product header with image if available */}
+        <div className="p-6 border-b border-gray-100">
+          <div className="flex flex-col md:flex-row items-center md:items-start gap-4">
+            {analysis.image && (
+              <div className="w-24 h-24 flex-shrink-0">
+                <img 
+                  src={analysis.image} 
+                  alt={analysis.productName} 
+                  className="w-full h-full object-contain rounded-md"
+                />
+              </div>
+            )}
+            <div className="flex-grow text-center md:text-left">
+              <h2 className="text-2xl font-bold text-gray-900">{analysis.productName}</h2>
+              {analysis.brand && (
+                <div className="flex items-center justify-center md:justify-start gap-1 text-sm text-gray-500 mt-1">
+                  <Tag className="h-3.5 w-3.5" />
+                  <span>{analysis.brand}</span>
+                </div>
+              )}
             </div>
-            <div className="mt-3 text-sm text-gray-500">{gradeDescriptions[analysis.grade]}</div>
+            <div className="flex flex-col items-center">
+              <div className="text-sm text-gray-600 font-medium">WHO Health Grade</div>
+              <div className={`w-16 h-16 flex items-center justify-center rounded-full text-3xl font-bold 
+                ${analysis.grade === 'A' ? 'bg-green-100 text-green-700' : 
+                  analysis.grade === 'B' ? 'bg-green-50 text-green-600' : 
+                  analysis.grade === 'C' ? 'bg-yellow-50 text-yellow-700' : 
+                  analysis.grade === 'D' ? 'bg-orange-50 text-orange-700' : 
+                  'bg-red-50 text-red-700'}`}>
+                {analysis.grade}
+              </div>
+            </div>
           </div>
         </div>
         
-        <div className="p-6 md:p-8 md:w-2/3">
-          <h2 className="text-2xl font-bold text-gray-900">{analysis.productName}</h2>
-          
-          <div className="mt-6">
-            <h3 className="text-lg font-medium text-gray-900 flex items-center">
+        <div className="p-6">
+          {/* Nutritional summary */}
+          <div className="mb-6">
+            <h3 className="text-lg font-medium text-gray-900 flex items-center mb-3">
               <Info className="h-5 w-5 mr-2 text-blue-500" />
-              Nutrition Facts (WHO Reference)
+              Nutrition Facts
             </h3>
-            <div className="mt-3 grid grid-cols-2 gap-4">
+            
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <p className="text-sm text-gray-500">Calories</p>
+                <p className="text-lg font-semibold">{analysis.nutrition.calories}<span className="text-xs ml-1">kcal</span></p>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <p className="text-sm text-gray-500">Protein</p>
+                <p className="text-lg font-semibold">{analysis.nutrition.protein}<span className="text-xs ml-1">g</span></p>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <p className="text-sm text-gray-500">Fat</p>
+                <p className="text-lg font-semibold">{analysis.nutrition.fat}<span className="text-xs ml-1">g</span></p>
+              </div>
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <p className="text-sm text-gray-500">Carbs</p>
+                <p className="text-lg font-semibold">{analysis.nutrition.carbs}<span className="text-xs ml-1">g</span></p>
+              </div>
+            </div>
+            
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
               <div>
-                <div className="text-sm font-medium text-gray-500">Calories</div>
-                <div className="text-lg font-semibold">{analysis.nutrition.calories} kcal</div>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-600">Sugar</span>
+                  <span className="font-medium">{analysis.nutrition.sugar}g</span>
+                </div>
+                <Progress value={analysis.nutrition.sugar * 10} className={`h-2 ${getNutrientProgressColor('sugar', analysis.nutrition.sugar)}`} />
               </div>
               <div>
-                <div className="text-sm font-medium text-gray-500">Protein</div>
-                <div className="flex items-center">
-                  <Progress 
-                    value={analysis.nutrition.protein * 5} 
-                    className={`h-2 mr-2 ${getNutrientProgressColor('protein', analysis.nutrition.protein)}`} 
-                  />
-                  <span>{analysis.nutrition.protein}g</span>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-600">Saturated Fat</span>
+                  <span className="font-medium">{analysis.nutrition.saturatedFat}g</span>
                 </div>
+                <Progress value={analysis.nutrition.saturatedFat * 10} className={`h-2 ${getNutrientProgressColor('saturatedFat', analysis.nutrition.saturatedFat)}`} />
               </div>
               <div>
-                <div className="text-sm font-medium text-gray-500">Fat</div>
-                <div className="flex items-center">
-                  <Progress 
-                    value={analysis.nutrition.fat * 3} 
-                    className={`h-2 mr-2 ${getNutrientProgressColor('fat', analysis.nutrition.fat)}`} 
-                  />
-                  <span>{analysis.nutrition.fat}g</span>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-600">Sodium</span>
+                  <span className="font-medium">{analysis.nutrition.sodium}mg</span>
                 </div>
+                <Progress value={analysis.nutrition.sodium / 20} className={`h-2 ${getNutrientProgressColor('sodium', analysis.nutrition.sodium)}`} />
               </div>
               <div>
-                <div className="text-sm font-medium text-gray-500">Saturated Fat</div>
-                <div className="flex items-center">
-                  <Progress 
-                    value={analysis.nutrition.saturatedFat * 10} 
-                    className={`h-2 mr-2 ${getNutrientProgressColor('saturatedFat', analysis.nutrition.saturatedFat)}`} 
-                  />
-                  <span>{analysis.nutrition.saturatedFat}g</span>
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-600">Fiber</span>
+                  <span className="font-medium">{analysis.nutrition.fiber}g</span>
                 </div>
-              </div>
-              <div>
-                <div className="text-sm font-medium text-gray-500">Sugar</div>
-                <div className="flex items-center">
-                  <Progress 
-                    value={analysis.nutrition.sugar * 10} 
-                    className={`h-2 mr-2 ${getNutrientProgressColor('sugar', analysis.nutrition.sugar)}`} 
-                  />
-                  <span>{analysis.nutrition.sugar}g</span>
-                </div>
-              </div>
-              <div>
-                <div className="text-sm font-medium text-gray-500">Fiber</div>
-                <div className="flex items-center">
-                  <Progress 
-                    value={analysis.nutrition.fiber * 10} 
-                    className={`h-2 mr-2 ${getNutrientProgressColor('fiber', analysis.nutrition.fiber)}`} 
-                  />
-                  <span>{analysis.nutrition.fiber}g</span>
-                </div>
-              </div>
-              <div>
-                <div className="text-sm font-medium text-gray-500">Sodium</div>
-                <div className="flex items-center">
-                  <Progress 
-                    value={analysis.nutrition.sodium / 25} 
-                    className={`h-2 mr-2 ${getNutrientProgressColor('sodium', analysis.nutrition.sodium)}`} 
-                  />
-                  <span>{analysis.nutrition.sodium}mg</span>
-                </div>
+                <Progress value={analysis.nutrition.fiber * 10} className={`h-2 ${getNutrientProgressColor('fiber', analysis.nutrition.fiber)}`} />
               </div>
             </div>
           </div>
           
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Ingredients */}
+          <div className="mb-6">
+            <h3 className="text-lg font-medium text-gray-900 flex items-center mb-3">
+              <Utensils className="h-5 w-5 mr-2 text-amber-500" />
+              Ingredients
+            </h3>
+            <p className="text-sm text-gray-600">
+              {analysis.ingredients.length > 0 
+                ? analysis.ingredients.join(', ') 
+                : "Ingredients information not available"}
+            </p>
+          </div>
+          
+          {/* Health information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div>
-              <h3 className="text-lg font-medium text-gray-900 flex items-center">
+              <h3 className="text-lg font-medium text-gray-900 flex items-center mb-2">
                 <Award className="h-5 w-5 mr-2 text-health-primary" />
-                WHO Aligned Benefits
+                Health Benefits
               </h3>
-              <ul className="mt-2 pl-7 list-disc text-sm text-gray-600 space-y-1">
+              <ul className="pl-6 list-disc text-sm text-gray-600 space-y-1">
                 {analysis.positives.map((positive, index) => (
                   <li key={index}>{positive}</li>
                 ))}
@@ -167,11 +191,11 @@ const ResultsComponent = ({ analysis }: { analysis: FoodAnalysis }) => {
             </div>
             
             <div>
-              <h3 className="text-lg font-medium text-gray-900 flex items-center">
+              <h3 className="text-lg font-medium text-gray-900 flex items-center mb-2">
                 <AlertCircle className="h-5 w-5 mr-2 text-health-f" />
-                WHO Health Concerns
+                Health Concerns
               </h3>
-              <ul className="mt-2 pl-7 list-disc text-sm text-gray-600 space-y-1">
+              <ul className="pl-6 list-disc text-sm text-gray-600 space-y-1">
                 {analysis.concerns.map((concern, index) => (
                   <li key={index}>{concern}</li>
                 ))}
@@ -179,12 +203,13 @@ const ResultsComponent = ({ analysis }: { analysis: FoodAnalysis }) => {
             </div>
           </div>
           
-          <div className="mt-6">
-            <h3 className="text-lg font-medium text-gray-900 flex items-center">
+          {/* Recommendation */}
+          <div className="p-4 bg-gray-50 rounded-lg">
+            <h3 className="text-lg font-medium text-gray-900 flex items-center mb-2">
               <Zap className="h-5 w-5 mr-2 text-amber-500" />
               WHO-Based Recommendation
             </h3>
-            <p className="mt-2 text-sm text-gray-600">
+            <p className="text-sm text-gray-600">
               {analysis.grade === "A" 
                 ? "This product aligns well with WHO dietary guidelines. Excellent choice for regular consumption."
                 : analysis.grade === "B" 
@@ -194,6 +219,9 @@ const ResultsComponent = ({ analysis }: { analysis: FoodAnalysis }) => {
                 : analysis.grade === "D"
                 ? "This product contains elements that exceed WHO recommended limits. Limit consumption and seek healthier alternatives."
                 : "This product contains multiple components that WHO associates with increased health risks. Consider healthier alternatives that better align with WHO dietary guidelines."}
+            </p>
+            <p className="text-xs text-gray-500 mt-2 italic">
+              {gradeDescriptions[analysis.grade]}
             </p>
           </div>
         </div>

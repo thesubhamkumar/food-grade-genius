@@ -1,120 +1,113 @@
+
 import { useState, useRef, useEffect } from "react";
-import { Camera, FileUp, X, AlertCircle } from "lucide-react";
+import { Camera, FileUp, X, AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
+import Quagga from "@ericblade/quagga2";
 
-const ScannerComponent = ({ onImageCaptured }: { onImageCaptured: (imageData: string) => void }) => {
-  const [capturing, setCapturing] = useState(false);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
+type ScannerProps = {
+  onBarcodeCaptured: (barcodeData: string) => void;
+};
+
+const ScannerComponent = ({ onBarcodeCaptured }: ScannerProps) => {
+  const [scanning, setScanning] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [lastResult, setLastResult] = useState<string | null>(null);
+  const videoRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  // Clean up Quagga when component unmounts
   useEffect(() => {
-    // Cleanup function to ensure camera is stopped when component unmounts
     return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
-        tracks.forEach(track => track.stop());
-      }
+      Quagga.stop();
     };
   }, []);
 
-  const startCamera = async () => {
-    // Reset any previous errors
+  // Set up Quagga barcode scanner
+  const startBarcodeScanner = async () => {
     setCameraError(null);
     
+    if (!videoRef.current) {
+      console.error("Video container not found");
+      setCameraError("Scanner initialization failed. Please try again.");
+      return;
+    }
+    
     try {
-      console.log("Attempting to access camera...");
+      console.log("Initializing barcode scanner...");
       
-      // Check if mediaDevices is supported
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        throw new Error("Camera access is not supported in your browser");
-      }
-      
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" }
+      await Quagga.init({
+        inputStream: {
+          name: "Live",
+          type: "LiveStream",
+          target: videoRef.current,
+          constraints: {
+            facingMode: "environment",
+            width: { min: 640 },
+            height: { min: 480 },
+            aspectRatio: { min: 1, max: 2 }
+          },
+        },
+        locator: {
+          patchSize: "medium",
+          halfSample: true
+        },
+        numOfWorkers: navigator.hardwareConcurrency || 4,
+        decoder: {
+          readers: [
+            "ean_reader",
+            "ean_8_reader",
+            "upc_reader",
+            "upc_e_reader"
+          ]
+        },
+        locate: true
       });
       
-      console.log("Camera access granted:", stream);
+      Quagga.start();
+      setScanning(true);
       
-      // Set capturing state first to ensure video element is rendered
-      setCapturing(true);
-      
-      // Add a small delay to ensure video element is mounted before setting srcObject
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.onloadedmetadata = () => {
-            console.log("Video metadata loaded, playing video");
-            if (videoRef.current) {
-              videoRef.current.play().catch(e => {
-                console.error("Error playing video:", e);
-                setCameraError("Could not play camera stream");
-              });
-            }
-          };
-        } else {
-          console.error("Video element still not found after delay");
-          setCameraError("Camera initialization failed. Please try again.");
-          
-          // Clean up the stream if video element is not available
-          stream.getTracks().forEach(track => track.stop());
+      Quagga.onDetected((result) => {
+        if (result && result.codeResult) {
+          const code = result.codeResult.code;
+          if (code && code !== lastResult) {
+            console.log("Barcode detected:", code);
+            setLastResult(code);
+            handleBarcodeDetected(code);
+          }
         }
-      }, 100);
+      });
       
+      console.log("Barcode scanner started successfully");
     } catch (error) {
-      console.error("Error accessing camera:", error);
+      console.error("Error initializing barcode scanner:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown camera error";
       setCameraError(errorMessage);
       toast({
         variant: "destructive",
-        title: "Camera Error",
+        title: "Scanner Error",
         description: `Could not access your camera. ${errorMessage}`
       });
     }
   };
 
-  const stopCamera = () => {
-    console.log("Stopping camera...");
-    if (videoRef.current && videoRef.current.srcObject) {
-      const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
-      tracks.forEach(track => track.stop());
-      videoRef.current.srcObject = null;
-      setCapturing(false);
-      console.log("Camera stopped");
-    }
+  const stopBarcodeScanner = () => {
+    console.log("Stopping barcode scanner...");
+    Quagga.stop();
+    setScanning(false);
+    setLastResult(null);
+    console.log("Barcode scanner stopped");
   };
 
-  const captureImage = () => {
-    console.log("Capturing image...");
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      
-      // Make sure dimensions are set correctly
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      
-      const context = canvas.getContext("2d");
-      if (context) {
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageData = canvas.toDataURL("image/jpeg");
-        console.log("Image captured successfully");
-        setPreviewImage(imageData);
-        stopCamera();
-        onImageCaptured(imageData);
-      } else {
-        console.error("Could not get canvas context");
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Could not process the image. Please try again."
-        });
-      }
-    }
+  const handleBarcodeDetected = (barcodeData: string) => {
+    console.log("Processing barcode:", barcodeData);
+    stopBarcodeScanner();
+    onBarcodeCaptured(barcodeData);
+    toast({
+      title: "Barcode Detected",
+      description: `Barcode: ${barcodeData}`,
+    });
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -123,140 +116,142 @@ const ScannerComponent = ({ onImageCaptured }: { onImageCaptured: (imageData: st
       console.log("File selected:", file.name);
       const reader = new FileReader();
       reader.onload = (e) => {
-        const imageData = e.target?.result as string;
-        setPreviewImage(imageData);
-        onImageCaptured(imageData);
+        if (e.target?.result) {
+          processImageFile(e.target.result as string);
+        }
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const resetCapture = () => {
-    setPreviewImage(null);
-    setCameraError(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+  const processImageFile = (imageUrl: string) => {
+    const image = new Image();
+    image.src = imageUrl;
+    image.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      if (!ctx) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Could not process the image. Please try again."
+        });
+        return;
+      }
+      
+      canvas.width = image.width;
+      canvas.height = image.height;
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+      
+      Quagga.decodeSingle({
+        src: canvas.toDataURL(),
+        numOfWorkers: navigator.hardwareConcurrency || 4,
+        decoder: {
+          readers: [
+            "ean_reader",
+            "ean_8_reader",
+            "upc_reader",
+            "upc_e_reader"
+          ]
+        },
+        locate: true,
+      }, (result) => {
+        if (result && result.codeResult) {
+          handleBarcodeDetected(result.codeResult.code);
+        } else {
+          toast({
+            variant: "destructive",
+            title: "No Barcode Found",
+            description: "Could not detect a valid barcode in the image. Please try again."
+          });
+        }
+      });
+    };
   };
 
   const tryAgain = () => {
     setCameraError(null);
-    setCapturing(false);
+    setScanning(false);
   };
 
   return (
     <div className="flex flex-col items-center w-full max-w-xl mx-auto">
-      {/* Always render the canvas to ensure it's available */}
-      <canvas ref={canvasRef} className="hidden"></canvas>
-      
-      {!previewImage ? (
-        <>
-          {capturing ? (
-            <div className="relative w-full">
-              {/* Add a key to force re-render of video element */}
-              <video 
-                key="camera-video"
-                ref={videoRef} 
-                autoPlay 
-                playsInline 
-                className="w-full h-auto rounded-lg border-2 border-health-primary"
-              ></video>
-              <div className="absolute bottom-4 left-0 right-0 flex justify-center space-x-4">
-                <Button 
-                  variant="destructive"
-                  size="icon"
-                  onClick={stopCamera}
-                  className="rounded-full shadow-lg"
-                >
-                  <X className="h-5 w-5" />
-                </Button>
-                <Button 
-                  variant="default"
-                  size="lg"
-                  onClick={captureImage}
-                  className="rounded-full bg-white text-health-primary hover:bg-gray-100 shadow-lg"
-                >
-                  <Camera className="h-6 w-6" />
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center space-y-4 w-full">
-              <div className="text-center mb-4">
-                <h2 className="text-2xl font-bold text-gray-800">Scan Food Label</h2>
-                <p className="text-gray-600 mt-1">Take a photo of the nutrition facts label</p>
-              </div>
-              
-              {cameraError ? (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 w-full">
-                  <div className="flex items-start">
-                    <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 mr-2" />
-                    <div>
-                      <h3 className="text-sm font-medium text-red-800">Camera Error</h3>
-                      <p className="text-sm text-red-700 mt-1">{cameraError}</p>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="mt-3"
-                        onClick={tryAgain}
-                      >
-                        Try Again
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
-                <Button 
-                  variant="outline" 
-                  onClick={startCamera}
-                  className="h-24 border-dashed border-2 hover:border-health-primary hover:bg-health-secondary/20"
-                >
-                  <div className="flex flex-col items-center">
-                    <Camera className="h-8 w-8 text-health-primary mb-2" />
-                    <span>Take Photo</span>
-                  </div>
-                </Button>
-                
-                <Button 
-                  variant="outline" 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="h-24 border-dashed border-2 hover:border-health-primary hover:bg-health-secondary/20"
-                >
-                  <div className="flex flex-col items-center">
-                    <FileUp className="h-8 w-8 text-health-primary mb-2" />
-                    <span>Upload Image</span>
-                  </div>
-                </Button>
-                <input 
-                  type="file" 
-                  ref={fileInputRef}
-                  accept="image/*" 
-                  onChange={handleFileUpload} 
-                  className="hidden" 
-                />
-              </div>
-            </div>
-          )}
-        </>
-      ) : (
-        <div className="w-full">
-          <div className="relative">
-            <img 
-              src={previewImage} 
-              alt="Captured food label" 
-              className="w-full h-auto rounded-lg border-2 border-health-primary" 
-            />
-            <button 
-              onClick={resetCapture}
-              className="absolute top-2 right-2 bg-white p-1 rounded-full shadow-md hover:bg-gray-100"
-            >
-              <X className="h-5 w-5 text-gray-700" />
-            </button>
+      {!scanning ? (
+        <div className="flex flex-col items-center space-y-4 w-full">
+          <div className="text-center mb-4">
+            <h2 className="text-2xl font-bold text-gray-800">Scan Product Barcode</h2>
+            <p className="text-gray-600 mt-1">Scan UPC/EAN code on food packaging</p>
           </div>
-          <div className="mt-4 text-center">
-            <p className="text-sm text-gray-500">Analyzing image...</p>
+          
+          {cameraError ? (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 w-full">
+              <div className="flex items-start">
+                <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 mr-2" />
+                <div>
+                  <h3 className="text-sm font-medium text-red-800">Scanner Error</h3>
+                  <p className="text-sm text-red-700 mt-1">{cameraError}</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-3"
+                    onClick={tryAgain}
+                  >
+                    Try Again
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
+            <Button 
+              variant="outline" 
+              onClick={startBarcodeScanner}
+              className="h-24 border-dashed border-2 hover:border-health-primary hover:bg-health-secondary/20"
+            >
+              <div className="flex flex-col items-center">
+                <Camera className="h-8 w-8 text-health-primary mb-2" />
+                <span>Scan Barcode</span>
+              </div>
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              onClick={() => fileInputRef.current?.click()}
+              className="h-24 border-dashed border-2 hover:border-health-primary hover:bg-health-secondary/20"
+            >
+              <div className="flex flex-col items-center">
+                <FileUp className="h-8 w-8 text-health-primary mb-2" />
+                <span>Upload Image</span>
+              </div>
+            </Button>
+            <input 
+              type="file" 
+              ref={fileInputRef}
+              accept="image/*" 
+              onChange={handleFileUpload} 
+              className="hidden" 
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="relative w-full">
+          <div ref={videoRef} className="w-full h-auto overflow-hidden rounded-lg border-2 border-health-primary"></div>
+          <div className="absolute top-4 right-4 flex justify-center space-x-4">
+            <Button 
+              variant="destructive"
+              size="icon"
+              onClick={stopBarcodeScanner}
+              className="rounded-full shadow-lg"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
+          <div className="absolute bottom-4 left-0 right-0 flex justify-center">
+            <div className="bg-white/80 p-2 rounded-full shadow-lg text-sm">
+              <p className="text-center">Hold steady, searching for barcode...</p>
+            </div>
           </div>
         </div>
       )}
