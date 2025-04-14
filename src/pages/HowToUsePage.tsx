@@ -2,7 +2,7 @@
 import { Layout } from "@/components/Layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Globe, ScanLine, BarcodeScan, Camera, FileSearch } from "lucide-react";
+import { Globe, ScanLine, BarcodeIcon, Camera, FileSearch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 
@@ -26,7 +26,7 @@ const HowToUsePage = () => {
       id: 3,
       title: "Find the Barcode",
       description: "Locate the barcode on your food package, usually on the back or bottom.",
-      icon: <BarcodeScan className="w-10 h-10 text-health-primary" />,
+      icon: <BarcodeIcon className="w-10 h-10 text-health-primary" />,
       image: "https://images.unsplash.com/photo-1473091534298-04dcbce3278c?w=800&auto=format"
     },
     {
