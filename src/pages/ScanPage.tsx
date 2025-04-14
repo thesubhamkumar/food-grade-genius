@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import { Layout } from "@/components/Layout";
 import ScannerComponent from "@/components/ScannerComponent";
 import ResultsComponent from "@/components/ResultsComponent";
 import ResultsSkeleton from "@/components/ResultsSkeleton";
@@ -508,8 +507,7 @@ const ScanPage = () => {
   };
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <Header />
+    <Layout>
       <main className="flex-grow container px-4 py-8 mx-auto">
         <div className="max-w-3xl mx-auto">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
@@ -531,7 +529,7 @@ const ScanPage = () => {
               )}
               
               {(scanning || loadingRecent) && !analyzing && (
-                <ScannerComponent onBarcodeCaptured={handleBarcodeCaptured} />
+                <ScannerComponent onDetected={handleBarcodeCaptured} />
               )}
               
               {analyzing && (
@@ -671,8 +669,7 @@ const ScanPage = () => {
           </Tabs>
         </div>
       </main>
-      <Footer />
-    </div>
+    </Layout>
   );
 };
 

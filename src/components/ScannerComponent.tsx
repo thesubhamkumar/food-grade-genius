@@ -1,13 +1,15 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import Quagga from 'quagga';
+import Quagga from '@ericblade/quagga2';
 import ScanGuideOverlay from './ScanGuideOverlay';
 import { toast } from "@/components/ui/use-toast"
 
 interface ScannerComponentProps {
   onDetected: (result: string) => void;
+  onBarcodeCaptured?: (result: string) => void;
 }
 
-const ScannerComponent: React.FC<ScannerComponentProps> = ({ onDetected }) => {
+const ScannerComponent: React.FC<ScannerComponentProps> = ({ onDetected, onBarcodeCaptured }) => {
   const [scanning, setScanning] = useState(false);
   const scannerRef = useRef<HTMLDivElement>(null);
 
@@ -47,7 +49,12 @@ const ScannerComponent: React.FC<ScannerComponentProps> = ({ onDetected }) => {
 
     Quagga.onDetected((result) => {
       if (result && result.codeResult && result.codeResult.code) {
+        // Call both handlers to support both prop names
         onDetected(result.codeResult.code);
+        if (onBarcodeCaptured) {
+          onBarcodeCaptured(result.codeResult.code);
+        }
+        
         Quagga.stop();
         setScanning(false);
         toast({
@@ -61,7 +68,7 @@ const ScannerComponent: React.FC<ScannerComponentProps> = ({ onDetected }) => {
       Quagga.offDetected(null);
       Quagga.stop();
     };
-  }, [onDetected]);
+  }, [onDetected, onBarcodeCaptured]);
 
   return (
     <div className="relative w-full max-w-md mx-auto">
