@@ -17,16 +17,27 @@ const Header = () => {
           <Link to="/scan" className="text-sm font-medium text-gray-700 hover:text-health-primary transition-colors">
             Scan Label
           </Link>
+          <Link to="/how-to-use" className="text-sm font-medium text-gray-700 hover:text-health-primary transition-colors">
+            How To Use
+          </Link>
           <Link to="/about" className="text-sm font-medium text-gray-700 hover:text-health-primary transition-colors">
             About
           </Link>
         </nav>
-        <Link 
-          to="/scan" 
-          className="md:hidden inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-health-primary rounded-md shadow-sm hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-health-primary"
-        >
-          Scan
-        </Link>
+        <div className="flex items-center space-x-3 md:hidden">
+          <Link 
+            to="/how-to-use" 
+            className="text-sm font-medium text-gray-700 hover:text-health-primary transition-colors"
+          >
+            How To Use
+          </Link>
+          <Link 
+            to="/scan" 
+            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-white bg-health-primary rounded-md shadow-sm hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-health-primary"
+          >
+            Scan
+          </Link>
+        </div>
       </div>
     </header>
   );
