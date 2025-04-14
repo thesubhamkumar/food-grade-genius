@@ -13,35 +13,35 @@ const HowToUsePage = () => {
       title: "Open the Website",
       description: "Navigate to food-grade-genius.lovable.app in your browser.",
       icon: <Globe className="w-10 h-10 text-health-primary" />,
-      image: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=800&auto=format"
+      image: "https://images.unsplash.com/photo-1585184394271-4c0a47dc59c9?w=800&auto=format" // Person using laptop with food website
     },
     {
       id: 2,
       title: "Tap on the 'Scan' Option",
       description: "Find and tap the Scan button in the navigation menu.",
       icon: <ScanLine className="w-10 h-10 text-health-primary" />,
-      image: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format"
+      image: "https://images.unsplash.com/photo-1607082349566-187342175e2f?w=800&auto=format" // Person using smartphone with food app
     },
     {
       id: 3,
       title: "Find the Barcode",
       description: "Locate the barcode on your food package, usually on the back or bottom.",
       icon: <BarcodeIcon className="w-10 h-10 text-health-primary" />,
-      image: "https://images.unsplash.com/photo-1473091534298-04dcbce3278c?w=800&auto=format"
+      image: "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&auto=format" // Food package with barcode
     },
     {
       id: 4,
       title: "Scan the Barcode",
       description: "Position your camera so the barcode is centered in the scanning area.",
       icon: <Camera className="w-10 h-10 text-health-primary" />,
-      image: "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?w=800&auto=format"
+      image: "https://images.unsplash.com/photo-1512428559087-560fa5ceab42?w=800&auto=format" // Scanning a food product barcode
     },
     {
       id: 5,
       title: "View the Results",
       description: "Review the nutritional information and health insights for your product.",
       icon: <FileSearch className="w-10 h-10 text-health-primary" />,
-      image: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800&auto=format"
+      image: "https://images.unsplash.com/photo-1505364698918-92fdf1b1aa37?w=800&auto=format" // Food nutrition analysis results
     }
   ];
 
