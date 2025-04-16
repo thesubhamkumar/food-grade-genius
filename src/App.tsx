@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import ScanPage from "./pages/ScanPage";
 import AboutPage from "./pages/AboutPage";
 import HowToUsePage from "./pages/HowToUsePage";
+import FoodCompositionsPage from "./pages/FoodCompositionsPage";
 import NotFound from "./pages/NotFound";
 
 // Create a client
@@ -24,6 +25,7 @@ const App = () => {
           <Routes>
             <Route path="/" element={<IntroPage />} />
             <Route path="/home" element={<Index />} />
+            <Route path="/food-compositions" element={<FoodCompositionsPage />} />
             <Route path="/scan" element={<ScanPage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/how-to-use" element={<HowToUsePage />} />

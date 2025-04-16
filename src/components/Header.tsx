@@ -14,6 +14,9 @@ const Header = () => {
           <Link to="/home" className="text-sm font-medium text-gray-700 hover:text-health-primary transition-colors">
             Home
           </Link>
+          <Link to="/food-compositions" className="text-sm font-medium text-gray-700 hover:text-health-primary transition-colors">
+            Your Food Compositions
+          </Link>
           <Link to="/scan" className="text-sm font-medium text-gray-700 hover:text-health-primary transition-colors">
             Scan Label
           </Link>
