@@ -1,5 +1,5 @@
 
-import { Utensils } from "lucide-react";
+import { Utensils, Search, Lightbulb } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const Header = () => {
@@ -10,11 +10,14 @@ const Header = () => {
           <Utensils className="h-6 w-6 text-health-primary" />
           <span className="text-xl font-bold text-gray-800">FoodGrade Genius</span>
         </Link>
+        <div className="hidden md:block">
+          <p className="text-sm font-medium text-health-primary italic">Fuel Your Body, Feed Your Brain</p>
+        </div>
         <nav className="hidden md:flex md:items-center md:space-x-6">
-          <Link to="/home" className="text-sm font-medium text-gray-700 hover:text-health-primary transition-colors">
+          <Link to="/home" className="text-sm font-medium text-health-primary transition-colors border-b-2 border-health-primary pb-1">
             Home
           </Link>
-          <Link to="/food-compositions" className="text-sm font-medium text-health-primary transition-colors border-b-2 border-health-primary pb-1">
+          <Link to="/food-compositions" className="text-sm font-medium text-gray-700 hover:text-health-primary transition-colors">
             Your Food Compositions
           </Link>
           <Link to="/scan" className="text-sm font-medium text-gray-700 hover:text-health-primary transition-colors">

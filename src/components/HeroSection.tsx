@@ -1,12 +1,16 @@
 
-import { Camera, Sandwich, Award, Calculator } from "lucide-react";
+import { Camera, Award, Salad, Apple, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { QuotesCarousel } from "./QuotesCarousel";
 
 const HeroSection = () => {
   return (
     <div className="relative overflow-hidden bg-white">
-      <div className="container px-4 py-16 mx-auto sm:py-24 lg:px-8">
+      <div className="absolute top-20 right-0 -z-10 w-72 h-72 bg-health-secondary/20 rounded-full blur-3xl"></div>
+      <div className="absolute bottom-10 left-10 -z-10 w-80 h-80 bg-health-b/10 rounded-full blur-3xl"></div>
+      
+      <div className="container px-4 py-10 mx-auto sm:py-16 lg:px-8">
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-2">
           <div className="flex flex-col justify-center">
             <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl md:text-6xl">
@@ -56,6 +60,51 @@ const HeroSection = () => {
             </div>
           </div>
         </div>
+      </div>
+      
+      <div className="bg-gray-50 py-16">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900">Food Facts That'll Blow Your Mind</h2>
+            <p className="mt-4 text-lg text-gray-600 max-w-2xl mx-auto">
+              Discover surprising insights about the foods you eat every day
+            </p>
+          </div>
+          
+          <QuotesCarousel />
+          
+          <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">
+            <FactCard 
+              icon={<Apple className="h-10 w-10 text-health-a" />}
+              title="Apple Power" 
+              fact="Apples are more effective at waking you up in the morning than coffee, thanks to their natural sugars and fiber content."
+            />
+            <FactCard 
+              icon={<Salad className="h-10 w-10 text-health-a" />}
+              title="Leafy Greens Secret" 
+              fact="Just one cup of kale contains more vitamin C than an orange and is packed with cancer-fighting compounds."
+            />
+            <FactCard 
+              icon={<Lightbulb className="h-10 w-10 text-health-b" />}
+              title="Blueberry Brain Boost" 
+              fact="Regular blueberry consumption can delay brain aging by up to 2.5 years according to recent studies."
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const FactCard = ({ icon, title, fact }) => {
+  return (
+    <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 border border-gray-100 group hover:-translate-y-1 transition-transform">
+      <div className="flex flex-col items-center text-center">
+        <div className="mb-4 transform group-hover:scale-110 transition-transform duration-300">
+          {icon}
+        </div>
+        <h3 className="text-xl font-bold text-gray-800 mb-2">{title}</h3>
+        <p className="text-gray-600">{fact}</p>
       </div>
     </div>
   );
