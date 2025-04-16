@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { calculateTrustScore, getTrustScoreColor, getTrustScoreDescription } from "@/utils/trustScoreCalculator";
 import { UserPreferences, defaultPreferences } from "@/utils/userPreferences";
 import { cacheProduct, getCachedProduct, getRecentScans } from "@/utils/productCache";
+import { addScannedProductToFoods } from "@/utils/foodDatabaseManager";
 
 // Types for the Open Food Facts API response
 type OpenFoodFactsProduct = {
@@ -67,6 +68,9 @@ const ScanPage = () => {
   const [activeTab, setActiveTab] = useState("scan");
   const [loadingRecent, setLoadingRecent] = useState(false);
   const { toast } = useToast();
+
+  // Add a new state variable for "added to foods" status
+  const [addedToFoods, setAddedToFoods] = useState(false);
 
   // Load recent scans on component mount
   useEffect(() => {
@@ -506,6 +510,34 @@ const ScanPage = () => {
     setLoadingRecent(false);
   };
 
+  const handleAddToFoods = async () => {
+    if (!results) return;
+    
+    try {
+      const newFood = await addScannedProductToFoods(results);
+      if (newFood) {
+        setAddedToFoods(true);
+        toast({
+          title: "Added to Foods",
+          description: `${results.productName} has been added to your food database.`,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to add the product to your food database.",
+        });
+      }
+    } catch (error) {
+      console.error("Error adding to foods:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "An error occurred while adding the product to your food database.",
+      });
+    }
+  };
+
   return (
     <Layout>
       <main className="flex-grow container px-4 py-8 mx-auto">
@@ -604,6 +636,19 @@ const ScanPage = () => {
                     onIngredientClick={handleIngredientClick}
                     userPreferences={userPreferences}
                   />
+                  
+                  {/* Add a button to save the scanned product to foods database */}
+                  <div className="mt-4 flex justify-center">
+                    <Button
+                      variant="outline"
+                      className="flex items-center gap-2"
+                      onClick={handleAddToFoods}
+                      disabled={addedToFoods}
+                    >
+                      <Plus className="h-4 w-4" />
+                      {addedToFoods ? "Added to Food Database" : "Add to Food Database"}
+                    </Button>
+                  </div>
                   
                   {selectedIngredient && (
                     <IngredientExplainer 

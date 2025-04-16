@@ -1,9 +1,16 @@
+
 import { Layout } from "@/components/Layout";
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search } from "lucide-react";
+import { Search, Plus, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/use-toast";
+import { addNewFood, getUserFoods, requestMissingFood } from "@/utils/foodDatabaseManager";
 
 interface FoodItem {
   id: string;
@@ -17,6 +24,8 @@ interface FoodItem {
   fiber: number;
   servingSize: string;
   notes?: string;
+  source?: string;
+  dateAdded?: number;
 }
 
 const foodDatabase: FoodItem[] = [
@@ -351,31 +360,314 @@ const FoodCompositionsPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredFoods, setFilteredFoods] = useState<FoodItem[]>(foodDatabase);
   const [activeCategory, setActiveCategory] = useState<string>("all");
+  const [newFoodName, setNewFoodName] = useState("");
+  const [missingFoodName, setMissingFoodName] = useState("");
+  const [userFoods, setUserFoods] = useState<FoodItem[]>([]);
+  const [showUserFoods, setShowUserFoods] = useState(false);
+  const { toast } = useToast();
+
+  // Load user's foods from local storage on component mount
+  useEffect(() => {
+    const loadUserFoods = async () => {
+      const foods = await getUserFoods();
+      setUserFoods(foods);
+    };
+    
+    loadUserFoods();
+  }, []);
 
   useEffect(() => {
-    const filtered = foodDatabase.filter((food) => {
+    // Combine built-in database with user-added foods
+    const allFoods = [...foodDatabase, ...userFoods];
+    
+    const filtered = allFoods.filter((food) => {
       const matchesSearch = food.name.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = activeCategory === "all" || food.category === activeCategory;
-      return matchesSearch && matchesCategory;
+      const matchesSource = !showUserFoods || (showUserFoods && food.source === 'user');
+      return matchesSearch && matchesCategory && matchesSource;
     });
     
     setFilteredFoods(filtered);
-  }, [searchTerm, activeCategory]);
+  }, [searchTerm, activeCategory, userFoods, showUserFoods]);
+
+  const handleAddNewFood = async (newFood: Partial<FoodItem>) => {
+    try {
+      // Call utility function to add the food to local storage
+      const addedFood = await addNewFood({
+        ...newFood,
+        id: `user-${Date.now()}`,
+        name: newFoodName,
+        category: activeCategory === "all" ? "other" : activeCategory as any,
+        calories: parseFloat(newFood.calories?.toString() || "0"),
+        protein: parseFloat(newFood.protein?.toString() || "0"),
+        carbs: parseFloat(newFood.carbs?.toString() || "0"),
+        sugar: parseFloat(newFood.sugar?.toString() || "0"),
+        fat: parseFloat(newFood.fat?.toString() || "0"),
+        fiber: parseFloat(newFood.fiber?.toString() || "0"),
+        servingSize: newFood.servingSize || "100g",
+        notes: newFood.notes || "User added food",
+        source: 'user',
+        dateAdded: Date.now()
+      });
+      
+      // Update the local state
+      setUserFoods(prev => [...prev, addedFood]);
+      
+      toast({
+        title: "Food Added",
+        description: `${newFoodName} has been added to your food database.`,
+      });
+      
+      // Reset form
+      setNewFoodName("");
+    } catch (error) {
+      console.error("Error adding food:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to add food to the database.",
+      });
+    }
+  };
+
+  const handleRequestMissingFood = async () => {
+    if (!missingFoodName.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please enter a food name.",
+      });
+      return;
+    }
+    
+    try {
+      await requestMissingFood(missingFoodName);
+      
+      toast({
+        title: "Request Sent",
+        description: `Your request for ${missingFoodName} has been recorded. We'll add it soon!`,
+      });
+      
+      setMissingFoodName("");
+    } catch (error) {
+      console.error("Error requesting food:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to submit your request.",
+      });
+    }
+  };
 
   return (
     <Layout>
       <div className="container max-w-6xl px-4 py-8 mx-auto">
         <h1 className="text-3xl font-bold text-gray-800 mb-6">Your Food Compositions</h1>
         
-        <div className="relative mb-6">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-          <Input
-            type="search"
-            placeholder="Search for foods..."
-            className="pl-10"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="flex flex-col sm:flex-row justify-between mb-6 gap-4">
+          <div className="relative flex-grow">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <Input
+              type="search"
+              placeholder="Search for foods..."
+              className="pl-10"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          
+          <div className="flex gap-2">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-1">
+                  <Plus className="h-4 w-4" />
+                  Add Food
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Add New Food</DialogTitle>
+                  <DialogDescription>
+                    Add a new food item to your personal database.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="name" className="text-right">
+                      Name
+                    </Label>
+                    <Input
+                      id="name"
+                      placeholder="e.g. Brown Rice"
+                      className="col-span-3"
+                      value={newFoodName}
+                      onChange={(e) => setNewFoodName(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="calories" className="text-right">
+                      Calories
+                    </Label>
+                    <Input
+                      id="calories"
+                      type="number"
+                      placeholder="per serving"
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="protein" className="text-right">
+                      Protein (g)
+                    </Label>
+                    <Input
+                      id="protein"
+                      type="number"
+                      placeholder="per serving"
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="carbs" className="text-right">
+                      Carbs (g)
+                    </Label>
+                    <Input
+                      id="carbs"
+                      type="number"
+                      placeholder="per serving"
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="sugar" className="text-right">
+                      Sugar (g)
+                    </Label>
+                    <Input
+                      id="sugar"
+                      type="number"
+                      placeholder="per serving"
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="fat" className="text-right">
+                      Fat (g)
+                    </Label>
+                    <Input
+                      id="fat"
+                      type="number"
+                      placeholder="per serving"
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="fiber" className="text-right">
+                      Fiber (g)
+                    </Label>
+                    <Input
+                      id="fiber"
+                      type="number"
+                      placeholder="per serving"
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="serving" className="text-right">
+                      Serving Size
+                    </Label>
+                    <Input
+                      id="serving"
+                      placeholder="e.g. 100g, 1 cup"
+                      className="col-span-3"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="notes" className="text-right">
+                      Notes
+                    </Label>
+                    <Textarea
+                      id="notes"
+                      placeholder="Any additional information"
+                      className="col-span-3"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="submit" onClick={() => {
+                    const newFood: Partial<FoodItem> = {
+                      calories: parseFloat((document.getElementById('calories') as HTMLInputElement).value || "0"),
+                      protein: parseFloat((document.getElementById('protein') as HTMLInputElement).value || "0"),
+                      carbs: parseFloat((document.getElementById('carbs') as HTMLInputElement).value || "0"),
+                      sugar: parseFloat((document.getElementById('sugar') as HTMLInputElement).value || "0"),
+                      fat: parseFloat((document.getElementById('fat') as HTMLInputElement).value || "0"),
+                      fiber: parseFloat((document.getElementById('fiber') as HTMLInputElement).value || "0"),
+                      servingSize: (document.getElementById('serving') as HTMLInputElement).value || "100g",
+                      notes: (document.getElementById('notes') as HTMLTextAreaElement).value || ""
+                    };
+                    handleAddNewFood(newFood);
+                  }}>
+                    Add Food
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-1">
+                  <AlertCircle className="h-4 w-4" />
+                  Request Food
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Request Missing Food</DialogTitle>
+                  <DialogDescription>
+                    Can't find what you're looking for? Let us know and we'll add it to our database.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="missing-food" className="text-right">
+                      Food Name
+                    </Label>
+                    <Input
+                      id="missing-food"
+                      placeholder="e.g. Quinoa Milk"
+                      className="col-span-3"
+                      value={missingFoodName}
+                      onChange={(e) => setMissingFoodName(e.target.value)}
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="additional-info" className="text-right">
+                      Details
+                    </Label>
+                    <Textarea
+                      id="additional-info"
+                      placeholder="Any additional information about this food"
+                      className="col-span-3"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="submit" onClick={handleRequestMissingFood}>
+                    Submit Request
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+
+        <div className="flex justify-end mb-4">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className={`text-sm ${showUserFoods ? 'bg-gray-100' : ''}`}
+            onClick={() => setShowUserFoods(!showUserFoods)}
+          >
+            {showUserFoods ? "Show All Foods" : "Show My Added Foods"}
+          </Button>
         </div>
 
         <Tabs defaultValue="all" onValueChange={setActiveCategory}>
@@ -424,10 +716,10 @@ const FoodTable = ({ foods }: { foods: FoodItem[] }) => {
         <TableBody>
           {foods.length > 0 ? (
             foods.map((food) => (
-              <TableRow key={food.id} className="hover:bg-gray-50">
+              <TableRow key={food.id} className={`hover:bg-gray-50 ${food.source === 'user' ? 'bg-blue-50 hover:bg-blue-100' : ''}`}>
                 <TableCell className="font-medium">
                   <div>
-                    <div>{food.name}</div>
+                    <div>{food.name} {food.source === 'user' && <span className="text-xs text-blue-500 ml-1">(added by you)</span>}</div>
                     {food.notes && (
                       <div className="text-xs text-gray-500 mt-1">{food.notes}</div>
                     )}

@@ -14,7 +14,7 @@ const Header = () => {
           <Link to="/home" className="text-sm font-medium text-gray-700 hover:text-health-primary transition-colors">
             Home
           </Link>
-          <Link to="/food-compositions" className="text-sm font-medium text-gray-700 hover:text-health-primary transition-colors">
+          <Link to="/food-compositions" className="text-sm font-medium text-health-primary transition-colors border-b-2 border-health-primary pb-1">
             Your Food Compositions
           </Link>
           <Link to="/scan" className="text-sm font-medium text-gray-700 hover:text-health-primary transition-colors">
@@ -29,10 +29,10 @@ const Header = () => {
         </nav>
         <div className="flex items-center space-x-3 md:hidden">
           <Link 
-            to="/how-to-use" 
+            to="/food-compositions" 
             className="text-sm font-medium text-gray-700 hover:text-health-primary transition-colors"
           >
-            How To Use
+            Food DB
           </Link>
           <Link 
             to="/scan" 
