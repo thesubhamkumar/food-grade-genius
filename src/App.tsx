@@ -14,6 +14,7 @@ import AboutPage from "./pages/AboutPage";
 import HowToUsePage from "./pages/HowToUsePage";
 import FoodCompositionsPage from "./pages/FoodCompositionsPage";
 import NotFound from "./pages/NotFound";
+import DidYouKnowWidget from "./components/DidYouKnowWidget";
 
 // Create a client
 const queryClient = new QueryClient();
@@ -45,6 +46,7 @@ const App = () => {
         <BrowserRouter>
           <ScrollProgress />
           <BackgroundParticles />
+          <DidYouKnowWidget />
           <Toaster />
           <Sonner />
           <AnimatedRoutes />

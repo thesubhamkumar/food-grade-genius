@@ -4,6 +4,8 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import HeroSection from "@/components/HeroSection";
 import FeaturesSection from "@/components/FeaturesSection";
+import RandomFactGenerator from "@/components/RandomFactGenerator";
+import DidYouKnowWidget from "@/components/DidYouKnowWidget";
 import { pageTransition } from "@/utils/animations";
 
 const Index = () => {
@@ -24,7 +26,9 @@ const Index = () => {
       >
         <HeroSection />
         <FeaturesSection />
+        <RandomFactGenerator />
       </motion.main>
+      <DidYouKnowWidget />
       <Footer />
     </motion.div>
   );
