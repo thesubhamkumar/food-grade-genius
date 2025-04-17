@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
-import ScannerComponent from "@/components/ScannerComponent";
+import ScannerComponent, { checkHarmfulAdditives, validateNutrition } from "@/components/ScannerComponent";
 import ResultsComponent from "@/components/ResultsComponent";
 import ResultsSkeleton from "@/components/ResultsSkeleton";
 import { FoodAnalysis } from "@/components/ResultsComponent";
@@ -97,6 +97,28 @@ const ScanPage = () => {
       // Process the data into our FoodAnalysis format
       const results = processProductData(cachedProduct.data);
       setResults(results);
+
+      // Validate nutritional information
+      const nutritionValidation = validateNutrition(cachedProduct.data.nutriments);
+      if (!nutritionValidation.valid) {
+        toast({
+          variant: "destructive",
+          title: "Nutrition Warning",
+          description: nutritionValidation.details
+        });
+      }
+      
+      // Check for harmful additives
+      if (cachedProduct.data.additives_tags && cachedProduct.data.additives_tags.length > 0) {
+        const additivesCheck = checkHarmfulAdditives(cachedProduct.data.additives_tags);
+        if (additivesCheck.harmful) {
+          toast({
+            variant: "destructive",
+            title: "Harmful Additives Detected",
+            description: `This product contains potentially harmful additives. Check the details section.`
+          });
+        }
+      }
       
       toast({
         title: "Product Found (Cached)",
@@ -120,6 +142,28 @@ const ScanPage = () => {
         
         // Process the data into our FoodAnalysis format
         const results = processProductData(data.product);
+        
+        // Validate nutritional information
+        const nutritionValidation = validateNutrition(data.product.nutriments);
+        if (!nutritionValidation.valid) {
+          toast({
+            variant: "destructive",
+            title: "Nutrition Warning",
+            description: nutritionValidation.details
+          });
+        }
+        
+        // Check for harmful additives
+        if (data.product.additives_tags && data.product.additives_tags.length > 0) {
+          const additivesCheck = checkHarmfulAdditives(data.product.additives_tags);
+          if (additivesCheck.harmful) {
+            toast({
+              variant: "destructive",
+              title: "Harmful Additives Detected",
+              description: `This product contains potentially harmful additives. Check the details section.`
+            });
+          }
+        }
         
         // Calculate trust score
         const calculatedTrustScore = calculateTrustScore(data.product);
@@ -271,10 +315,19 @@ const ScanPage = () => {
       concerns.push(`Contains allergens: ${product.allergens_tags.map(a => a.replace('en:', '')).join(', ')}`);
     }
     
-    // Add additive warnings
+    // Add additive warnings - Enhanced with more detailed harmful additive information
     if (product.additives_tags && product.additives_tags.length > 0) {
-      const additivesList = product.additives_tags.slice(0, 3).map(a => a.replace('en:', ''));
-      concerns.push(`Contains additives: ${additivesList.join(', ')}${product.additives_tags.length > 3 ? ' and others' : ''}`);
+      const additivesCheck = checkHarmfulAdditives(product.additives_tags);
+      
+      if (additivesCheck.harmful) {
+        // Add each harmful additive as a separate concern for more details
+        additivesCheck.details.forEach(detail => {
+          concerns.push(detail);
+        });
+      } else {
+        const additivesList = product.additives_tags.slice(0, 3).map(a => a.replace('en:', ''));
+        concerns.push(`Contains additives: ${additivesList.join(', ')}${product.additives_tags.length > 3 ? ' and others' : ''}`);
+      }
     }
     
     // Nutritional concerns based on WHO standards
