@@ -4,6 +4,21 @@ import Quagga from '@ericblade/quagga2';
 import ScanGuideOverlay from './ScanGuideOverlay';
 import { toast } from "@/components/ui/use-toast"
 
+// New utility function for barcode validation
+const validateBarcode = (barcode: string): 'VALID' | 'INVALID' => {
+  // Check if the barcode contains only numbers
+  if (!/^\d+$/.test(barcode)) {
+    return 'INVALID';
+  }
+
+  // Check if the barcode is either 12 digits (UPC-A) or 13 digits (EAN-13)
+  if (barcode.length === 12 || barcode.length === 13) {
+    return 'VALID';
+  }
+
+  return 'INVALID';
+};
+
 interface ScannerComponentProps {
   onDetected: (result: string) => void;
   onBarcodeCaptured?: (result: string) => void;
@@ -49,18 +64,30 @@ const ScannerComponent: React.FC<ScannerComponentProps> = ({ onDetected, onBarco
 
     Quagga.onDetected((result) => {
       if (result && result.codeResult && result.codeResult.code) {
-        // Call both handlers to support both prop names
-        onDetected(result.codeResult.code);
-        if (onBarcodeCaptured) {
-          onBarcodeCaptured(result.codeResult.code);
+        const scannedCode = result.codeResult.code;
+        const validationResult = validateBarcode(scannedCode);
+
+        if (validationResult === 'VALID') {
+          // Call both handlers to support both prop names
+          onDetected(scannedCode);
+          if (onBarcodeCaptured) {
+            onBarcodeCaptured(scannedCode);
+          }
+          
+          Quagga.stop();
+          setScanning(false);
+          toast({
+            title: "Barcode Detected",
+            description: "Product Found!",
+          });
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Invalid Barcode",
+            description: "The scanned code is not a valid product barcode.",
+          });
+          // Optional: you might want to continue scanning after an invalid barcode
         }
-        
-        Quagga.stop();
-        setScanning(false);
-        toast({
-          title: "Barcode Detected",
-          description: "Product Found!",
-        })
       }
     });
 
